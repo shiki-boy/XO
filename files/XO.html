@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2196f3">
+    <title>XO</title>
+
+    <!-- CSS  -->
+    <!--<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">-->
+    <link href="css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection" />
+    <link href="css/style.css" type="text/css" rel="stylesheet" media="screen,projection" />
+</head>
+<style type="text/css">
+    .box {
+        border: 2px none groove;
+        text-align: center;
+        border-radius: 3px;
+        height: 148px;
+        width: 29%;
+        top: 35px;
+        box-shadow: 3px 0px 31px 1px black;
+        font-size: 100px;
+        line-height: 114px;
+    }
+
+    a {
+        top: 118px;
+    }
+
+    body {
+        transition: all 500ms;
+    }
+
+    #msg {
+        font-size: 27px;
+    }
+</style>
+
+<body onload="StartGame();">
+    <div class="container  center">
+        <div id="msg"></div>
+        <table>
+            <tr>
+                <td id='1' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='2' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='3' class="col s4 box red waves-effect waves-light hoverable"></td>
+            </tr>
+            <tr>
+                <td id='4' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='5' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='6' class="col s4 box red waves-effect waves-light hoverable"></td>
+            </tr>
+            <tr>
+                <td id='7' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='8' class="col s4 box red waves-effect waves-light hoverable"></td>
+                <td id='9' class="col s4 box red waves-effect waves-light hoverable"></td>
+            </tr>
+        </table>
+        <a class="btn green accent-4 btn-large waves-effect condensed" onclick="restart();" type="button">restart</a>
+    </div>
+    <!--  Scripts-->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/materialize.js"></script>
+    <script src="js/init.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="text/javascript">
+        var socket = io();
+
+        var count = 0;
+        var board = [];
+        for (i = 0; i < 10; i++) {
+            board.push(Math.random());
+        }
+        var result = 0;
+        var winner, k = 0;
+        var bgcolors = [
+            'white',
+            'wheat',
+            'lightgreen',
+            'indianred',
+            'cyan',
+            '#24c',
+            'red',
+            'yellow',
+            'orange'
+        ];
+        var tileColors = [
+            'red',
+            'teal',
+            'pink',
+            'blue',
+            'white'
+        ];
+        var currentTileColor;
+
+        socket.on('connect', () => {
+            var d = new Date();
+            console.log(`new connection at : ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`);
+            socket.emit('onConn', {
+                hh: d.getHours(),
+                mm: d.getMinutes(),
+                ss: d.getSeconds()
+            });
+        });
+
+        socket.on('restartPressed', () => {
+            restart();
+        });
+
+        socket.on('serverMsg', (data) => {
+            if (count % 2 == 0) {
+                $('#' + data.playerPos).css('color', 'black');
+                count++;
+            }
+            else {
+                $('#' + data.playerPos).css('color', 'wheat');
+                count++;
+            }
+            $('#' + data.playerPos).append(data.player);
+            board[data.playerPos] = data.player;
+            if (checkWinner()) {
+                winner = document.turn;
+                result = 1;
+            }
+            switchTurn();
+        });
+
+        function StartGame() {
+            document.turn = '\xd7';
+            message(document.turn + ' gets to start.');
+            $('td').removeClass('purple');
+            $('td').addClass('red');
+        }
+
+        function message(msg) {
+            document.getElementById('msg').innerText = msg;
+        }
+
+        $(document).ready(function () {
+
+            $('td').click(function () {
+                navigator.vibrate(20);
+                if (result != 0) {
+                    // document.getElemen/'tById('winner').innerText =
+
+                    // winner + '  WON /'/'the game !!';
+                }
+                else {
+                    if (this.innerText == '') {
+
+                        $(this).append(document.turn);
+                        var square = $(this).attr('id');
+                        if (count % 2 == 0) {
+                            $(this).css('color', 'black');
+                            count++;
+                        }
+                        else {
+                            $(this).css('color', 'wheat');
+                            count++;
+                        }
+                        square = parseInt(square);
+                        board[square] = document.turn;
+
+                        socket.emit('move', {
+                            move: document.turn,
+                            position: square
+                        });
+
+                        if (result == 0) {
+                            if (checkWinner()) {
+                                winner = document.turn;
+                                result = 1;
+                                socket.emit('someone won', {});
+                                // document.getElementById('winner').innerText =
+                                // winner + '  WON the game !!';
+                            }
+                        }
+                        switchTurn();
+                        if (result == 1) {
+                            // message('---game over---');
+                        }
+
+                        else {
+                            $('#error').show(300);
+                            $('#error').hide(1500);
+                        }
+                        if (count == 9) {
+                            message('---game over---');
+                        }
+                    }
+                }
+            });
+
+
+        });
+
+
+        function switchTurn() {
+            if (document.turn == '\xd7') {
+                document.turn = 'o';
+            }
+            else {
+                document.turn = '\xd7';
+            }
+            message(document.turn + ' ki turn');
+        }
+
+        function checkWinner() {
+            if (board[1] == board[2] && board[1] == board[3] && board[2] == board[3]) {
+                lockColor(1, 2, 3);
+                return 1;
+            }
+            if (board[4] == board[5] && board[4] == board[6] && board[5] == board[6]) {
+                lockColor(4, 5, 6);
+                return 1;
+            }
+            if (board[7] == board[8] && board[7] == board[9] && board[8] == board[9]) {
+                lockColor(7, 8, 9);
+                return 1;
+            }
+            if (board[1] == board[5] && board[1] == board[5] && board[5] == board[9]) {
+                lockColor(1, 5, 9);
+                return 1;
+            }
+            if (board[3] == board[5] && board[3] == board[7] && board[5] == board[7]) {
+                lockColor(3, 5, 7);
+                return 1;
+            }
+            if (board[1] == board[4] && board[1] == board[7] && board[4] == board[7]) {
+                lockColor(1, 4, 7);
+                return 1;
+            }
+            if (board[2] == board[5] && board[2] == board[8] && board[5] == board[8]) {
+                lockColor(2, 5, 8);
+                return 1;
+            }
+            if (board[3] == board[6] && board[3] == board[9] && board[6] == board[9]) {
+                lockColor(3, 6, 9);
+                return 1;
+            }
+            else {
+                return 0;
+            }
+        }
+        function lockColor(x, y, z) {
+            $('#' + x + ',#' + y + ',#' + z).css('color', 'white');
+            $('#' + x + ',#' + y + ',#' + z).removeClass(currentTileColor);
+            $('#' + x + ',#' + y + ',#' + z).addClass('purple');
+        }
+        function restart() {
+
+            $('td').text('');
+            StartGame();
+            // document.getElementById('winner').innerText = '';
+            document.getElementById('msg').innerText = document.turn + ' gets to start';
+            result = 0;
+            count = 0;
+            for (i = 0; i < 10; i++) {
+                board[i] = (Math.random());
+            }
+            var n = Math.floor(bgcolors.length * Math.random());
+            $('body').css('background-color', '' + bgcolors[n]);
+            changeTileColors();
+
+        }
+        $("a").click(() => {
+            socket.emit('restart', {});
+        });
+
+
+        function changeTileColors() {
+
+            $(document).ready(() => {
+                $('tr td').removeClass(currentTileColor);
+                $('tr td').removeClass('purple');
+                k++;
+                $('tr td').addClass(tileColors[k]);
+                currentTileColor = tileColors[k];
+                if (k > tileColors.length - 1)
+                    k = 0;
+            });
+
+        }
+    </script>
+</body>
+
+</html>
